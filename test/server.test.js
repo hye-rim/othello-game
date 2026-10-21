@@ -104,6 +104,8 @@ test('illegal moves, out-of-turn moves and garbage are ignored', async () => {
   send(black, 'place', { i: 0 });                                   // 뒤집을 돌이 없는 자리
   send(black, 'place', { i: 27 });                                  // 이미 돌이 있는 칸
   send(black, 'place', { i: -3 }); send(black, 'place', { i: 99 }); send(black, 'place', { i: 'x' }); send(black, 'place', {});
+  // Number(null) 은 0, Number('19') 는 19 가 되어 예전엔 칸 번호로 받아들여졌다 (19 는 흑이 실제로 둘 수 있는 자리)
+  for (const bad of [null, '19', true, [], [19], 19.5]) send(black, 'place', { i: bad });
   await sleep(300);
   assert.strictEqual(black.room.moves.length, 0, 'nothing was accepted');
   const legal = R.legalMoves(R.newBoard(), R.BLACK)[0].i;

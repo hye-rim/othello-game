@@ -289,7 +289,7 @@ const handlers = {
     const room = rooms.get(client.roomCode);
     const seat = room && seatOf(room, client);
     if (!seat || room.state !== 'playing' || room.turn !== seat.color) return;
-    const i = Number(msg.i);
+    const i = msg.i;                                          // 숫자가 아니면(null·문자열 등) 받지 않는다 (Number(null) 은 0 이 된다)
     if (!Number.isInteger(i) || i < 0 || i >= N * N) return;
     if (!R.play(room.board, i, seat.color)) return;           // 뒤집을 돌이 없는 자리는 둘 수 없다 (서버가 규칙을 직접 확인)
     room.moves.push([i, seat.color]);
