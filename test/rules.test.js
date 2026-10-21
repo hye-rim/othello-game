@@ -137,3 +137,21 @@ test('hard level respects its time budget', () => {
   assert.ok(R.legalMoves(b, WHITE).some((m) => m.i === i));
   assert.ok(dt < 1500, `시간 제한 준수: ${dt}ms`);
 });
+
+test('hard level still searches when the exact endgame search runs out of time', () => {
+  // 빈칸이 많은 판에서 '끝까지 읽기'를 억지로 켜고 시간을 아주 짧게 주면 반드시 시간이 모자란다
+  const b = R.newBoard(); let p = BLACK;
+  const rand = (() => { let s = 7; return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; })();
+  for (let k = 0; k < 12; k++) { const lm = R.legalMoves(b, p); if (!lm.length) break; R.play(b, lm[Math.floor(rand() * lm.length)].i, p); p = R.other(p); }
+  const info = {};
+  const i = R.aiMove(b, p, 'hard', { ms: 60, exactAt: 64, info });
+  assert.ok(info.exactTimedOut, 'the exact search timed out');
+  assert.ok(info.depth >= 2, `fell back to a real search (depth ${info.depth}), not just the square table`);
+  assert.ok(R.legalMoves(b, p).some((m) => m.i === i));
+  // 끝까지 읽기가 제시간에 끝나면 그 결과를 쓴다
+  const end = board(['BBBBBBBB', 'BWWWWWWB', 'BWBBBBWB', 'BWBWWBWB', 'BWBWWBWB', 'BWBBBB.B', 'BWWWWW..', 'BBBBBB..']);
+  const info2 = {};
+  const j = R.aiMove(end, WHITE, 'hard', { ms: 300, info: info2 });
+  assert.ok(!info2.exactTimedOut && info2.depth === R.count(end).empty);
+  assert.ok(R.legalMoves(end, WHITE).some((m) => m.i === j));
+});

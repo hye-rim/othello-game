@@ -159,20 +159,26 @@ function aiMove(b, p, level = 'normal', opts = {}) {
   let bestI = moves.slice().sort((x, y) => POS[y.i] - POS[x.i])[0].i;
   const maxDepth = opts.depth || 10;
   const solve = empty <= (opts.exactAt || 11);
+  const info = opts.info || {};                              // 시험용: 어디까지 읽었는지 남긴다
+  info.exactTimedOut = false; info.depth = 0;
   try {
     if (solve) {
       const ctx = { nodes: 0, deadline: start + Math.max(budget, 1600) };
       const r = scoreAll(empty, ctx, true).sort((x, y) => y.s - x.s);
+      info.depth = empty;
       return r[0].i;
     }
-  } catch (e) { if (!(e instanceof Timeout)) throw e; }
+  } catch (e) { if (!(e instanceof Timeout)) throw e; info.exactTimedOut = true; }
+  // 끝까지 읽기가 시간 안에 안 끝났으면, 깊이 탐색은 그때부터 새로 시간을 받는다
+  // (예전엔 마감이 이미 지나 깊이 2도 못 하고 자리 점수만으로 둬서 끝판에 크게 무너졌다)
+  const t1 = Date.now();
   for (let d = 2; d <= maxDepth; d++) {
-    const ctx = { nodes: 0, deadline: start + budget };
+    const ctx = { nodes: 0, deadline: d === 2 ? 0 : t1 + budget };   // 깊이 2는 가벼우니 마감 없이 항상 끝낸다
     try {
       const r = scoreAll(d, ctx, false).sort((x, y) => y.s - x.s);
-      bestI = r[0].i;
+      bestI = r[0].i; info.depth = d;
     } catch (e) { if (e instanceof Timeout) break; throw e; }
-    if (Date.now() - start > budget * 0.6) break;
+    if (Date.now() - t1 > budget * 0.6) break;
   }
   return bestI;
 }
