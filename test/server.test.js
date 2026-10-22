@@ -10,7 +10,10 @@ const path = require('path');
 const { WebSocket } = require('ws');
 const R = require('../public/rules.js');
 
-const PORT = 5900 + Math.floor(Math.random() * 300);
+// 운영체제가 지금 비어 있는 포트를 골라 준다. 예전엔 정해 둔 범위에서 무작위로 골라서, 다른 시험의 서버나
+// 다른 프로그램이 쓰는 포트와 겹치면 시험이 엉뚱한 서버에 붙어 가끔 실패했다
+const freePort = () => Number(require('child_process').execFileSync(process.execPath, ['-e', "const s = require('net').createServer().listen(0, '127.0.0.1', () => { console.log(s.address().port); s.close(); })"]));
+const PORT = freePort();
 const get = (p) => new Promise((resolve, reject) => {
   const req = http.request({ host: '127.0.0.1', port: PORT, path: p, method: 'GET' }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
   req.on('error', reject); req.end();
@@ -142,14 +145,17 @@ test('a full game between two clients ends with the correct winner', async () =>
 
 test('a pass is announced when the next player cannot move', async () => {
   await ready;
-  // 패스가 나올 때까지 몇 판을 둔다 (무작위 대국에서는 흔하다)
+  // 패스가 나올 때까지 몇 판을 둔다. 예전엔 Math.random 으로 둬서 운 나쁘면 8판 내내 패스가 안 나와 가끔 실패했다
+  // → 고정 난수로 두어 매번 같은 대국이 되게 하고, 판 수도 넉넉히
+  let seed = 12345;
+  const rand = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
   let seen = 0;
-  for (let g = 0; g < 8 && !seen; g++) {
+  for (let g = 0; g < 30 && !seen; g++) {
     const [a, b] = await pair();
     for (let guard = 0; guard < 150 && a.room.state === 'playing'; guard++) {
       const mover = mine(a, b), before = mover.room.moves.length, passBefore = mover.room.passSeq;
       const lm = R.legalMoves(boardOf(mover.room), mover.room.you);
-      send(mover, 'place', { i: lm[Math.floor(Math.random() * lm.length)].i });
+      send(mover, 'place', { i: lm[Math.floor(rand() * lm.length)].i });
       await until(() => a.room.moves.length > before || a.room.state === 'over');
       if (a.room.passSeq > passBefore) {
         seen++;
