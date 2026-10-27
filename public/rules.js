@@ -105,6 +105,11 @@ function evaluate(b, p) {
   return pos + mob * 7 + disc;
 }
 
+// 보통 난이도: 얕게 읽고(깊이), 비슷한 수 중에서 무작위로 고르고(tol), 가끔은 아무 수나 둔다(slip)
+const NORMAL = { depth: 1, tol: 30, slip: 0.25 };
+// 어려움: 세 수 앞까지 읽고 끝까지 계산은 하지 않는다 (시험에서는 깊이·끝까지 읽기를 직접 정해 쓸 수 있다)
+const HARD = { depth: 3, exactAt: 0 };
+
 class Timeout extends Error {}
 
 // 알파-베타 탐색. 점수는 p 의 입장. 끝까지 두는 경우(exact)에는 돌 수 차이만 본다
@@ -132,7 +137,7 @@ function search(b, p, depth, alpha, beta, ctx, exact) {
   return best;
 }
 
-// 한 수를 고른다. level: easy(아무 데나, 가끔 많이 뒤집는 곳) · normal(3수 앞) · hard(깊이 읽고 끝에는 끝까지)
+// 한 수를 고른다. level: easy(아무 데나, 가끔 많이 뒤집는 곳) · normal(한 수 앞 + 비슷한 수 중 무작위 + 가끔 실수) · hard(세 수 앞까지 읽기)
 function aiMove(b, p, level = 'normal', opts = {}) {
   const moves = legalMoves(b, p);
   if (!moves.length) return -1;
@@ -149,16 +154,19 @@ function aiMove(b, p, level = 'normal', opts = {}) {
   });
   const empty = count(b).empty;
   if (level === 'normal') {
-    const r = scoreAll(3, { nodes: 0, deadline: 0 }, false).sort((x, y) => y.s - x.s);
-    const top = r.filter((x) => x.s >= r[0].s - 6);               // 비슷한 점수면 무작위로: 매번 똑같이 두지 않게
+    const depth = opts.nDepth || NORMAL.depth, tol = opts.nTol ?? NORMAL.tol, slip = opts.nSlip ?? NORMAL.slip;
+    const r = scoreAll(depth, { nodes: 0, deadline: 0 }, false).sort((x, y) => y.s - x.s);
+    // 가끔(slip) 아무 수나 둔다: 사람처럼 놓치는 수
+    if (rand() < slip) return moves[Math.floor(rand() * moves.length)].i;
+    const top = r.filter((x) => x.s >= r[0].s - tol);             // 비슷한 점수면 무작위로: 매번 똑같이 두지 않게
     return top[Math.floor(rand() * top.length)].i;
   }
   // hard: 시간 안에서 점점 깊이 (iterative deepening). 끝이 가까우면 끝까지
   const budget = opts.ms || 900;
   const start = Date.now();
   let bestI = moves.slice().sort((x, y) => POS[y.i] - POS[x.i])[0].i;
-  const maxDepth = opts.depth || 10;
-  const solve = empty <= (opts.exactAt || 11);
+  const maxDepth = opts.depth || HARD.depth;
+  const solve = empty <= (opts.exactAt ?? HARD.exactAt);
   const info = opts.info || {};                              // 시험용: 어디까지 읽었는지 남긴다
   info.exactTimedOut = false; info.depth = 0;
   try {

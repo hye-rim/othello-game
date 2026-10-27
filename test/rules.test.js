@@ -151,7 +151,20 @@ test('hard level still searches when the exact endgame search runs out of time',
   // 끝까지 읽기가 제시간에 끝나면 그 결과를 쓴다
   const end = board(['BBBBBBBB', 'BWWWWWWB', 'BWBBBBWB', 'BWBWWBWB', 'BWBWWBWB', 'BWBBBB.B', 'BWWWWW..', 'BBBBBB..']);
   const info2 = {};
-  const j = R.aiMove(end, WHITE, 'hard', { ms: 300, info: info2 });
+  const j = R.aiMove(end, WHITE, 'hard', { ms: 300, exactAt: 11, info: info2 });
   assert.ok(!info2.exactTimedOut && info2.depth === R.count(end).empty);
   assert.ok(R.legalMoves(end, WHITE).some((m) => m.i === j));
+});
+
+test('hard level by default reads three moves ahead and does not solve the endgame', () => {
+  const end = board(['BBBBBBBB', 'BWWWWWWB', 'BWBBBBWB', 'BWBWWBWB', 'BWBWWBWB', 'BWBBBB.B', 'BWWWWW..', 'BBBBBB..']);
+  const info = {};
+  const i = R.aiMove(end, WHITE, 'hard', { info });
+  assert.strictEqual(info.depth, 3, 'three plies');
+  assert.ok(!info.exactTimedOut);
+  assert.ok(R.legalMoves(end, WHITE).some((m) => m.i === i));
+  const start = R.newBoard();
+  const info2 = {};
+  R.aiMove(start, BLACK, 'hard', { info: info2 });
+  assert.strictEqual(info2.depth, 3);
 });
