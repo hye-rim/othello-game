@@ -174,6 +174,7 @@ function finishAi() {
   else { r.l++; title = '😵 패배'; sfx.lose(); }
   rec[level] = r;
   store.set(RECORD_KEY, JSON.stringify(rec));
+  lastRecord = { level, key: w === EMPTY ? 'd' : w === humanColor ? 'w' : 'l' };
   const sub = `흑 ${c.black} : 백 ${c.white} · ${LEVELS[level].name} ${r.w}승 ${r.l}패${r.d ? ` ${r.d}무` : ''}`;
   setTimeout(() => {
     if (!over || mode !== 'ai') return;   // 그 사이 무르기
@@ -207,8 +208,21 @@ function maybeAi() {
   }, 30);
 }
 
+// 끝난 판의 전적은 무르기로 되돌아가면 함께 되돌린다 (다시 이겨도 두 번 세지 않게)
+let lastRecord = null;
+function rollbackRecord() {
+  if (!lastRecord) return;
+  const rec = loadJson(RECORD_KEY), r = rec[lastRecord.level];
+  if (r && r[lastRecord.key] > 0) {
+    r[lastRecord.key]--;
+    store.set(RECORD_KEY, JSON.stringify(rec));
+    if (lastRecord.key === 'w') store.set(WINS_KEY, String(Math.max(0, (Number(store.get(WINS_KEY)) || 0) - 1)));
+  }
+  lastRecord = null;
+}
 function undo() {
   if (mode !== 'ai' || !history.length) return;
+  if (over) rollbackRecord();
   clearTimeout(aiTimer);
   thinking = false;
   // 내 차례로 돌아오도록, 내가 둔 마지막 수 이전으로 되돌린다
